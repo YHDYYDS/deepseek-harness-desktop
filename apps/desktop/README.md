@@ -1,6 +1,25 @@
-# @deepseek-ai/dsh-desktop
+# DeepSeek Harness 桌面版
 
-DeepSeek Harness 桌面壳：宿主（完整 web 组合）运行在 Electron 主进程内，单一进程树，无需本机安装 Node/`dsh`。设计见 [DESIGN.md](./DESIGN.md)。
+基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（MIT）的 **Electron 桌面壳**：把整个宿主进程（模型路由、工具、沙箱、会话存储）内嵌进 Electron 主进程，得到一款**开箱即用**的桌面应用——目标机器无需安装 Node.js、pnpm 或 `dsh`。设计蓝图见 [DESIGN.md](./DESIGN.md)。
+
+## ✨ 特性
+
+- **双击即用**：内置 Electron 运行时（Node 22）与全部 Harness 插件，无环境依赖
+- **与 Web 版完全互通**：共享 `~/.dsh` 的会话、设置、凭据与四个 Agent 预设（标准 / PTC / 极简 / 创造）
+- **模型继承**：沿用你的 `agent-default-model` 配置（如 `deepseek-v4-pro` + 推理等级），零迁移
+- **本机安全**：宿主仅绑定 `127.0.0.1` 随机端口；渲染进程完全沙箱化，禁止离源导航
+- **单实例 + 优雅退出**：重复启动聚焦已有窗口；关闭窗口后宿主完整关停、端口释放
+- **DeepSeek 鲸鱼图标**：窗口、任务栏与安装包图标均由官方 favicon 生成（`scripts/make-icons.cjs` 可复现）
+
+## 🚀 使用哪个程序（一键启动）
+
+| 场景 | 程序 | 说明 |
+|---|---|---|
+| 装好以后日常用 | 开始菜单「DeepSeek Harness」 | 由 `setup.exe` 安装后出现，双击秒开 |
+| 免安装试用 | `DeepSeek Harness-0.1.0-rc.5-portable.exe` | 双击即用，但每次启动自解压较慢 |
+| 开发者自用（推荐） | `dist\win-unpacked\DeepSeek Harness.exe` | 打包目录内的一键启动，无需安装；**必须连同整个 `win-unpacked` 文件夹一起保留**（依赖同目录 `resources\`） |
+
+首次启动：按界面引导配置 DeepSeek API Key（仅存于本机 `~/.dsh`）。
 
 ## 前置条件
 
