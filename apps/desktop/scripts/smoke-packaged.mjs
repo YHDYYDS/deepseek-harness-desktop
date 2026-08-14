@@ -38,6 +38,7 @@ const dshHome = join(runDir, '.dsh')
 const env = {
   ...process.env,
   DSH_DESKTOP_SMOKE: '1',
+  DSH_DESKTOP_SMOKE_USERDATA: join(runDir, 'userdata'),
   DSH_DESKTOP_BOOT_LOG: bootLog,
   DSH_HOME: dshHome,
 }
@@ -84,10 +85,10 @@ const poll = () => {
   } catch {
     /* boot log appears on first trace */
   }
-  const ok = log.match(/SMOKE_OK(?: plugins=(\d+))?/)
+  const ok = log.match(/SMOKE_OK(?: entries=(\d+))?/)
   const fail = log.match(/SMOKE_FAIL.*/)
   if (ok !== null) {
-    settle(0, `PASS: renderer reported a healthy client boot (plugins=${ok[1] ?? '?'})`)
+    settle(0, `PASS: renderer reported a healthy client boot (entries=${ok[1] ?? '?'})`)
     return
   }
   if (fail !== null) {

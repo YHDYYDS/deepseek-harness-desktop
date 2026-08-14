@@ -355,12 +355,69 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@deepseek-ai/cordis-plugin-group':
+        specifier: workspace:^
+        version: link:../../vendor/group
       '@deepseek-ai/dsh':
         specifier: workspace:^
         version: link:../cli
+      '@deepseek-ai/dsh-anonymous-user-id':
+        specifier: workspace:^
+        version: link:../../packages/identity/anonymous-user-id
       '@deepseek-ai/dsh-app-boot':
         specifier: workspace:^
         version: link:../../packages/boot/app-boot
+      '@deepseek-ai/dsh-atomic-write':
+        specifier: workspace:^
+        version: link:../../packages/util/atomic-write
+      '@deepseek-ai/dsh-bash-local':
+        specifier: workspace:^
+        version: link:../../packages/shell/bash-local
+      '@deepseek-ai/dsh-code-runtime':
+        specifier: workspace:^
+        version: link:../../packages/code-runtime/code-runtime
+      '@deepseek-ai/dsh-compaction':
+        specifier: workspace:^
+        version: link:../../packages/compaction/compaction
+      '@deepseek-ai/dsh-fs':
+        specifier: workspace:^
+        version: link:../../packages/fs/fs
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../packages/runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-output-retention':
+        specifier: workspace:^
+        version: link:../../packages/util/output-retention
+      '@deepseek-ai/dsh-sandbox':
+        specifier: workspace:^
+        version: link:../../packages/sandbox/sandbox
+      '@deepseek-ai/dsh-scope':
+        specifier: workspace:^
+        version: link:../../packages/core/scope
+      '@deepseek-ai/dsh-session-telemetry':
+        specifier: workspace:^
+        version: link:../../packages/session/session-telemetry
+      '@deepseek-ai/dsh-session-title-llm':
+        specifier: workspace:^
+        version: link:../../packages/session/session-title-llm
+      '@deepseek-ai/dsh-shell':
+        specifier: workspace:^
+        version: link:../../packages/shell/shell
+      '@deepseek-ai/dsh-spill':
+        specifier: workspace:^
+        version: link:../../packages/spill/spill
+      '@deepseek-ai/dsh-subagent-in-process-driver':
+        specifier: workspace:^
+        version: link:../../packages/subagent/subagent-in-process-driver
+      '@deepseek-ai/dsh-subprocess':
+        specifier: workspace:^
+        version: link:../../packages/subprocess/subprocess
+      '@deepseek-ai/dsh-timeout':
+        specifier: workspace:^
+        version: link:../../packages/util/timeout
+      '@deepseek-ai/dsh-workflow':
+        specifier: workspace:^
+        version: link:../../packages/workflow/workflow
     devDependencies:
       '@types/node':
         specifier: ^22.20.0
@@ -20164,7 +20221,7 @@ snapshots:
 
   node-abi@4.33.0:
     dependencies:
-      semver: 7.7.4
+      semver: 7.8.5
 
   node-addon-api@7.1.1: {}
 
@@ -20219,7 +20276,7 @@ snapshots:
 
   node-api-version@0.2.1:
     dependencies:
-      semver: 7.7.4
+      semver: 7.8.5
 
   node-domexception@1.0.0: {}
 
@@ -20236,7 +20293,7 @@ snapshots:
       graceful-fs: 4.2.11
       nopt: 9.0.0
       proc-log: 6.1.0
-      semver: 7.7.4
+      semver: 7.8.5
       tar: 7.5.22
       tinyglobby: 0.2.17
       undici: 6.28.0

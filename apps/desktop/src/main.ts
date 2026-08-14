@@ -176,16 +176,16 @@ async function runSmokeProbeIfRequested(): Promise<void> {
     // times so a slow first paint on CI runners cannot fake a failure.
     for (let attempt = 1; ; attempt += 1) {
       const raw = await win.webContents.executeJavaScript(
-        'JSON.stringify({ boot: !!window.__DSH_BOOT__, plugins: window.__DSH_BOOT__ ? Object.keys(window.__DSH_BOOT__).length : 0 })',
+        'JSON.stringify({ boot: !!window.__DSH_BOOT__, entries: window.__DSH_BOOT__ && Array.isArray(window.__DSH_BOOT__.entries) ? window.__DSH_BOOT__.entries.length : 0 })',
       )
-      const parsed: { boot: boolean; plugins: number } = JSON.parse(String(raw))
-      if (parsed.boot && parsed.plugins > 0) {
-        trace(`SMOKE_OK plugins=${String(parsed.plugins)}`)
+      const parsed: { boot: boolean; entries: number } = JSON.parse(String(raw))
+      if (parsed.boot && parsed.entries > 0) {
+        trace(`SMOKE_OK entries=${String(parsed.entries)}`)
         app.exit(0)
         return
       }
       if (attempt >= 10) {
-        trace(`SMOKE_FAIL boot=${String(parsed.boot)} plugins=${String(parsed.plugins)} after ${String(attempt)} attempts`)
+        trace(`SMOKE_FAIL boot=${String(parsed.boot)} entries=${String(parsed.entries)} after ${String(attempt)} attempts`)
         app.exit(1)
         return
       }
@@ -224,6 +224,16 @@ async function boot(): Promise<void> {
   trace(`boot: serving ${started.url}`)
 
   await runSmokeProbeIfRequested()
+}
+
+// Smoke runs get their own userData: the single-instance lock, Chromium
+// caches and crashpad must never collide with a real desktop app that is
+// running on the same machine (the smoke test must pass while the app runs).
+if (isSmokeRun()) {
+  app.setPath(
+    'userData',
+    process.env.DSH_DESKTOP_SMOKE_USERDATA?.trim() || join(tmpdir(), 'dsh-desktop-smoke-userdata'),
+  )
 }
 
 if (!app.requestSingleInstanceLock()) {

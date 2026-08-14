@@ -150,6 +150,9 @@ workspace 接入：`pnpm-workspace.yaml` 增加 `apps/desktop`；依赖 `@deepse
 | 6 | 打包后 `__DSH_BOOT__.entries` 为空（0 个 client 插件） | client-modules 注册表经 `$DSH_HOME/profiles/node_modules` 符号链接解析包路径，链接目标指向 asar 内部（真实 fs 不存在、realpath 失败） | **`asar: false`**：harness 深度依赖真实路径（符号链接、worker、koffi FFI、profile 配置），整体解包（VS Code 同型布局）一次性消除整类问题；打包后 38 个 client 插件全部注册、bundle 200 |
 | 7 | pnpm 安装卡在 `@openai/codex` | npm 对该 131MB tarball 仅 ~4KiB/s；且 lockfile 完整性哈希对应旧发布（同版本重打包），镜像副本哈希不符 | 从镜像源取到 tarball 存入 store 后 `pnpm update @openai/codex` 让 pnpm 用注册表新完整性更新 lockfile；`pnpm-workspace.yaml` 的 `allowBuilds` 增补 `electron: true`（构建时经 `ELECTRON_MIRROR`） |
 | 8 | electron-builder 二进制下载慢/失败 | GitHub 网络受限 | `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/` + `ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/` |
+| 9 | 打包版在**全新 DSH_HOME** 下 bootstrap 即失败（main.cjs catch → 错误框 + exit 1，无日志） | resolve hook 只锚定 `$DSH_HOME/profiles/web`；新机器（未装过 dsh CLI）没有该目录 → `@deepseek-ai/*` 静态导入解析失败。开发者机器能跑只是因为 ~/.dsh 里有 profile 扁平回退 | hook 增加**应用自身 package.json 锚点**（asar:false 下 production node_modules 就在 resources/app 旁），再回退 profile；冒烟模式下失败写入 boot log 而非阻塞弹窗。由打包冒烟测试在全新临时 DSH_HOME 下暴露 |
+| 10 | 打包树缺 19 个传递依赖（`cordis-plugin-group` 等，electron-builder 收集不到 pnpm 未提升的传递依赖——steven-kid 仓库同款问题，其 package.json 显式列出这批包） | pnpm 只把直接依赖提升进应用 node_modules，嵌套的传递依赖被 electron-builder 跳过 | 以 `~/.dsh/profiles/node_modules` 完整扁平回退为基准 diff 出缺口清单，将 19 个 workspace 包补为 apps/desktop 直接依赖（`workspace:^`，保持源码版本含会话修复），强制提升后 electron-builder 正常收集 |
+| 11 | DSH 沙箱内 spawn 打包 exe 直接退出（exit 1、无任何日志） | 沙箱对 GUI 子进程的限制（同一目录用 electron.exe 控制台运行正常、explorer/WMI 沙箱外启动正常） | 冒烟测试面向 CI/用户终端设计；本机验证经 WMI（`Win32_Process.Create`）在沙箱外执行 |
 
 **验证结论**：`dist/win-unpacked` 打包版实测——宿主在 Electron 主进程启动（随机回环端口），UI 完整（38 插件图、bundle 200、manifest 可用），窗口关闭 → 进程归零（优雅关停）。首次冷启动 ~40s（无 asar 的实文件冷读），后续启动显著更快。
 
