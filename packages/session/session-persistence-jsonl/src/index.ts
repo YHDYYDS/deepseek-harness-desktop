@@ -22,6 +22,7 @@ import {
   type StoredPrefix,
 } from '@deepseek-ai/dsh-session-persistence'
 import type { SessionEvent, SessionId, SessionHeader, SessionPreparation } from '@deepseek-ai/dsh-session'
+import { interruptedTurnClosers } from '@deepseek-ai/dsh-session'
 import {
   encodeSegment, eventLines, logPath, logSuffix, parseHeaderMeta, projectDir, scanLog, sessionDir,
   SessionLogScanner, toHeaderLine,
@@ -36,6 +37,19 @@ export type { JsonlCompression } from './format.ts'
 
 const DEFAULT_PACK_CHUNKS = true
 const DEFAULT_COMPRESSION: JsonlCompression = 'zstd'
+/** How long a repair waits on another process's repair lock before proceeding unlocked. */
+const REPAIR_LOCK_WAIT_MS = 10_000
+/** Age after which a repair lock is considered abandoned and taken over. */
+const REPAIR_LOCK_STALE_MS = 60_000
+
+/** Highest event seq in a stored event list (-1 when empty). */
+function maxEventSeq(events: readonly SessionEvent[]): number {
+  let max = -1
+  for (const event of events) {
+    if (event.seq > max) max = event.seq
+  }
+  return max
+}
 /**
  * Internal scheduling constant, not deployment configuration: balance
  * frame-boundary event-loop yields against `setImmediate` overhead. One frame
@@ -430,17 +444,84 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
 
   /**
    * Make a crash repair durable: truncate a torn tail, restore complete events
-   * decoded from it, then append synthetic closers. Two fsync'd steps — the seam
-   * does not require this to be atomic.
+   * decoded from it, then append synthetic closers. Serialized across processes
+   * by a per-session lock file and re-derived from the CURRENT durable tail at
+   * commit time: a racing repair that already closed the turn makes this one a
+   * no-op, and sequence numbers are always minted from the committed watermark
+   * rather than from the (possibly stale) caller's prepared slice. Without
+   * this, two hosts sharing one root can both commit duplicate closers with
+   * colliding seqs — the "seq gap in committed region" corruption that makes
+   * every later cold read fail.
    */
   async commitRepair(
     meta: SessionHeader,
     tornMarker: JsonlTornMarker | undefined,
     closers: readonly SessionEvent[],
   ): Promise<void> {
-    if (tornMarker !== undefined) await this.repair(meta, tornMarker.truncateTo)
-    const repairedEvents = [...(tornMarker?.recoveredEvents ?? []), ...closers]
-    if (repairedEvents.length > 0) await this.appendLines(meta, repairedEvents)
+    void closers // advisory only: the durable tail is the seq authority
+    const path = logPath(this.root, meta.cwd, meta.id, this.compression)
+    await this.withRepairLock(`${path}.lock`, async () => {
+      let current: StoredPrefix<JsonlTornMarker> | undefined
+      for (let attempt = 0; attempt < 3; attempt++) {
+        current = await this.loadStored(meta.id)
+        if (current === undefined) return // nothing durable to repair
+        if (current.tornMarker !== undefined) {
+          await this.repair(meta, current.tornMarker.truncateTo)
+          continue
+        }
+        break
+      }
+      if (current === undefined) return
+      // Restore only the torn-frame events nobody else has committed yet.
+      const durableMax = maxEventSeq(current.events)
+      const recovered = (tornMarker?.recoveredEvents ?? []).filter(event => event.seq > durableMax)
+      // Derive closers from the current tail: the caller's prepared slice may
+      // predate a racing repair, so its closers must never be appended verbatim.
+      const derived = interruptedTurnClosers([...current.events, ...recovered])
+      const toAppend = [...recovered, ...derived]
+      if (toAppend.length > 0) await this.appendLines(meta, toAppend)
+    })
+  }
+
+  /**
+   * Run one repair commit under a per-session cross-process lock. The lock is
+   * an exclusive-create file beside the log; a stale lock (older than the
+   * takeover age) is removed, and after a bounded wait the operation proceeds
+   * unlocked — seq re-derivation keeps the log contiguous either way, so the
+   * bounded wait trades a rare duplicate-closer commit for never deadlocking.
+   */
+  private async withRepairLock<T>(lockPath: string, op: () => Promise<T>): Promise<T> {
+    const deadline = Date.now() + REPAIR_LOCK_WAIT_MS
+    for (;;) {
+      try {
+        const handle = await open(lockPath, 'wx')
+        try {
+          await handle.writeFile(`${process.pid}\n`)
+        } finally {
+          await handle.close()
+        }
+        try {
+          return await op()
+        } finally {
+          await rm(lockPath, { force: true }).catch(() => {})
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException | null)?.code !== 'EEXIST') throw error
+        let stale = false
+        try {
+          const identity = await stat(lockPath)
+          stale = Date.now() - identity.mtimeMs > REPAIR_LOCK_STALE_MS
+        } catch {
+          // Lock vanished between attempts — retry immediately.
+        }
+        if (stale) {
+          await rm(lockPath, { force: true }).catch(() => {})
+          continue
+        }
+        if (Date.now() > deadline) return await op()
+        await scheduler.wait(25)
+      }
+    }
   }
 
   /** List valid unique stored sessions' metadata (header line only — no full-log parse). */

@@ -1,10 +1,10 @@
-import { MessageId, createUserMessage, createMessage } from '@deepseek-ai/dsh-llm'
+import { CallId, MessageId, createUserMessage, createMessage } from '@deepseek-ai/dsh-llm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { appendFile, mkdtemp, mkdir, rm, readFile, writeFile, readdir, stat, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
+import SessionStore, { SessionId, interruptedTurnClosers } from '@deepseek-ai/dsh-session'
 import type { Session, SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import {
@@ -1617,5 +1617,60 @@ describe('JsonlSessionPersistence: edge cases', () => {
     // The bad event was rejected, so the log stayed empty.
     expect(session.events.length).toBe(0)
   })
+})
 
+describe('JsonlSessionPersistence: cross-process repair race', () => {
+  type BackendFace = {
+    loadStored: (id: SessionId) => Promise<{ meta: SessionHeader; events: SessionEvent[]; tornMarker: unknown } | undefined>
+    commitRepair: (meta: SessionHeader, tornMarker: unknown, closers: readonly SessionEvent[]) => Promise<void>
+  }
+
+  it('a second repair over an already-closed tail appends nothing (no seq collision)', async () => {
+    const dir = await freshRoot()
+    const header = meta('race', '/work')
+    const events: SessionEvent[] = [
+      { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
+      { type: 'step/start', seq: 1, time: 2, data: { turn: 1, step: 1 } },
+      { type: 'assistant/message', seq: 2, time: 3, data: {
+        turn: 1, step: 1,
+        message: createMessage({
+          role: 'assistant',
+          content: [{ type: 'tool-call', id: CallId('race-call'), name: 'bash', arguments: '{}' }],
+          source: { kind: 'model', provider: 'mock', model: 'mock' },
+        }),
+      }, surfaceOp: 'append' },
+      { type: 'tool/call', seq: 3, time: 4, data: { turn: 1, step: 1, callId: CallId('race-call'), name: 'bash', arguments: '{}' } },
+    ]
+    await mkdir(dirname(rawLogPath(dir, '/work', header.id)), { recursive: true })
+    await writeFile(rawLogPath(dir, '/work', header.id), `${JSON.stringify(toHeaderLine(header))}\n${eventLines(events, false)}\n`)
+
+    // Two hosts share one root: both prepare the same open tail independently.
+    const ctxA = new Context()
+    await ctxA.plugin(SessionStore)
+    await ctxA.plugin(JsonlSessionPersistence, { root: dir, compression: 'none' })
+    const ctxB = new Context()
+    await ctxB.plugin(SessionStore)
+    await ctxB.plugin(JsonlSessionPersistence, { root: dir, compression: 'none' })
+    const a = ctxA.sessionPersistence as unknown as BackendFace
+    const b = ctxB.sessionPersistence as unknown as BackendFace
+
+    const storedA = await a.loadStored(header.id)
+    const storedB = await b.loadStored(header.id)
+    const closersA = interruptedTurnClosers(storedA!.events)
+    const closersB = interruptedTurnClosers(storedB!.events)
+    expect(closersA.map(e => e.seq)).toEqual([4, 5, 6])
+
+    // The race: A commits first, then B commits its stale-slice closers.
+    await a.commitRepair(header, storedA!.tornMarker, closersA)
+    await b.commitRepair(header, storedB!.tornMarker, closersB)
+
+    // Exactly one closer set committed; the log stays contiguous and clean.
+    const final = await a.loadStored(header.id)
+    expect(final!.events.map(e => e.seq)).toEqual([0, 1, 2, 3, 4, 5, 6])
+    expect(final!.events.filter(e => e.type === 'tool/result')).toHaveLength(1)
+    const raw = await readFile(rawLogPath(dir, '/work', header.id), 'utf8')
+    expect(() => scanLog(Buffer.from(raw, 'utf8'))).not.toThrow()
+    const leftovers = (await readdir(dir, { recursive: true })).filter(p => String(p).endsWith('.lock'))
+    expect(leftovers).toEqual([])
+  })
 })
