@@ -30,15 +30,27 @@ asar: false
 
 npmRebuild: false
 
+# The update feed. Declaring it makes electron-builder emit the channel file
+# (latest.yml) next to the installers; CI uploads it to each release and the
+# app reads it via setFeedURL (src/updater.ts). Nothing is auto-published:
+# the dist script always passes --publish never.
+publish:
+  provider: github
+  owner: YHDYYDS
+  repo: deepseek-harness-desktop
+
 win:
   target:
     - nsis
     - portable
   icon: build/icon.ico
 
+# One-click NSIS on purpose: it is the electron-updater battle-tested layout —
+# silent /S --updated reinstalls work, per-user installs avoid UAC on update,
+# and the installer relaunches the app afterwards. Assisted installers make
+# the auto-update path unreliable, so directory choice is not offered.
 nsis:
-  oneClick: false
-  allowToChangeInstallationDirectory: true
+  oneClick: true
   artifactName: ${productName}-${version}-setup.${ext}
 
 portable:

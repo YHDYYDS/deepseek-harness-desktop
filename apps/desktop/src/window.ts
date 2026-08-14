@@ -18,13 +18,27 @@ function isSmokeRun(): boolean {
 /** The host origin the renderer is currently pinned to (set after takeover). */
 let pinnedOrigin: string | null = null
 
+/** A created shell window plus its initial splash-load promise. */
+export interface CreatedWindow {
+  win: BrowserWindow
+  /**
+   * Resolves once loading.html finished loading; rejects on a real load
+   * failure. Callers MUST await this before navigating the window to the
+   * host URL — otherwise a fast host boot supersedes the in-flight splash
+   * load, which aborts it with ERR_ABORTED (-3) and fails the whole boot.
+   */
+  splashLoaded: Promise<void>
+}
+
 /**
  * Create the main window showing the local loading page.
- * The host URL is loaded later via {@link navigateToHost}; the loading page
- * gives slow cold boots something visible instead of an empty desktop.
- * @returns the window, shown once its first paint is ready.
+ * The host URL is loaded later via {@link navigateToHost} once
+ * {@link CreatedWindow.splashLoaded} resolved; the loading page gives slow
+ * cold boots something visible instead of an empty desktop.
+ * @returns the window (shown once its first paint is ready) and its splash
+ * load promise.
  */
-export function createWindow(): BrowserWindow {
+export function createWindow(): CreatedWindow {
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -52,8 +66,8 @@ export function createWindow(): BrowserWindow {
   win.once('ready-to-show', () => {
     if (!isSmokeRun()) win.show()
   })
-  void win.loadFile(LOADING_PAGE)
-  return win
+  const splashLoaded = win.loadFile(LOADING_PAGE)
+  return { win, splashLoaded }
 }
 
 /** Update the loading page status line (no-op once the host page is loaded). */

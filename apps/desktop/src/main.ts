@@ -12,6 +12,10 @@
  * renderer for the injected __DSH_BOOT__ client catalog, prints SMOKE_OK /
  * SMOKE_FAIL to the boot log and exits — this is what
  * scripts/smoke-packaged.mjs drives against the packaged exe.
+ *
+ * Auto-update: the installed NSIS build checks GitHub Releases in the
+ * background shortly after boot and on demand via the application menu
+ * (see updater.ts); portable/dev/smoke builds are inert.
  * @module @deepseek-ai/dsh-desktop
  */
 
@@ -23,6 +27,8 @@ import type { BrowserWindow } from 'electron'
 import { startHost, type HostHandle } from './host.js'
 import { createWindow, navigateToHost, navigateToLoading, setLoadingStatus } from './window.js'
 import { installLifecycle } from './lifecycle.js'
+import { installApplicationMenu } from './menu.js'
+import { checkForUpdatesInteractive, initUpdater } from './updater.js'
 
 const BOOT_LOG = process.env.DSH_DESKTOP_BOOT_LOG?.trim() || join(tmpdir(), 'dsh-desktop-boot.log')
 
@@ -207,11 +213,17 @@ async function boot(): Promise<void> {
   }
 
   trace('boot: showing loading page')
-  win = createWindow()
+  const created = createWindow()
+  win = created.win
   win.on('closed', () => {
     win = null
   })
   setLoadingStatus(win, '正在准备运行时…')
+
+  // The splash must finish loading before the host page can take over the
+  // window: a fast host boot otherwise supersedes the in-flight splash load,
+  // which aborts it with ERR_ABORTED (-3) and fails the whole boot.
+  await created.splashLoaded
 
   trace('boot: starting embedded host (web profile, --port 0)')
   const started = await startHost()
@@ -222,6 +234,10 @@ async function boot(): Promise<void> {
   installLifecycle(() => host, () => win)
   startHealthChecks()
   trace(`boot: serving ${started.url}`)
+
+  // Update plumbing: the menu entry point plus the background startup check.
+  installApplicationMenu(checkForUpdatesInteractive)
+  initUpdater(trace)
 
   await runSmokeProbeIfRequested()
 }

@@ -61,4 +61,11 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: apps/desktop/dist/*.exe
+          # latest.yml is the electron-updater channel file: the in-app
+          # "check for updates" reads it from here, so it must ship with
+          # every release (the version inside must match the tag).
+          # *.blockmap enables differential (delta) downloads.
+          files: |
+            apps/desktop/dist/*.exe
+            apps/desktop/dist/*.blockmap
+            apps/desktop/dist/latest.yml
