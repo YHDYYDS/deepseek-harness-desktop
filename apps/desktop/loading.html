@@ -7,18 +7,18 @@
   <style>
     :root {
       --brand: #4d6bfe;
+      --track: rgba(77, 107, 254, 0.18);
       --text: #1f2328;
-      --muted: #6b7280;
-      --bg: #f6f7fb;
-      --card: rgba(255, 255, 255, 0.85);
+      --muted: #717887;
+      --bg: #eef0f6;
       --err: #d93026;
     }
     @media (prefers-color-scheme: dark) {
       :root {
+        --track: rgba(122, 148, 255, 0.18);
         --text: #e6e8ee;
-        --muted: #9aa3b2;
+        --muted: #8a93a5;
         --bg: #10141c;
-        --card: rgba(28, 33, 45, 0.85);
         --err: #ff6b5e;
       }
     }
@@ -32,57 +32,76 @@
       background: var(--bg);
       color: var(--text);
       user-select: none;
+      overflow: hidden;
     }
-    .card {
+    .stage {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 18px;
-      padding: 44px 56px;
-      border-radius: 16px;
-      background: var(--card);
-      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
-      min-width: 340px;
+      gap: 16px;
+      padding: 32px;
     }
     .logo {
-      width: 72px;
-      height: 72px;
-      animation: breathe 2.2s ease-in-out infinite;
+      width: 64px;
+      height: 64px;
+      animation: breathe 2.4s ease-in-out infinite;
     }
     @keyframes breathe {
       0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.06); opacity: 0.86; }
+      50% { transform: scale(1.05); opacity: 0.88; }
     }
-    h1 { font-size: 19px; font-weight: 600; letter-spacing: 0.2px; }
-    .status-row { display: flex; align-items: center; gap: 10px; }
-    .dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--brand);
-      animation: pulse 1.2s ease-in-out infinite;
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
     }
-    @keyframes pulse {
-      0%, 100% { opacity: 0.25; transform: scale(0.85); }
-      50% { opacity: 1; transform: scale(1.1); }
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 22px;
     }
-    #status { font-size: 13.5px; color: var(--muted); max-width: 420px; text-align: center; line-height: 1.6; }
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2.5px solid var(--track);
+      border-top-color: var(--brand);
+      animation: spin 0.85s linear infinite;
+      flex: 0 0 auto;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .spinner.error { border-top-color: var(--err); }
+    #status {
+      font-size: 13px;
+      color: var(--muted);
+      max-width: 480px;
+      text-align: center;
+      line-height: 1.6;
+    }
     #status.error { color: var(--err); }
-    #status.error ~ .status-row .dot { background: var(--err); animation: none; opacity: 1; }
-    .hint { font-size: 11.5px; color: var(--muted); opacity: 0.7; }
   </style>
 </head>
 <body>
-  <main class="card">
+  <main class="stage">
     <img class="logo" src="build/icon.png" alt="DeepSeek Harness" />
     <h1>DeepSeek Harness</h1>
-    <div class="status-row"><span class="dot"></span><span id="status">正在启动 DeepSeek Harness…</span></div>
-    <div class="hint">会话与凭据仅保存在本机 ~/.dsh</div>
+    <div class="status-row">
+      <span class="spinner" id="spinner"></span>
+      <span id="status">正在启动 DeepSeek Harness…</span>
+    </div>
   </main>
   <script>
     // Called from the Electron main process via webContents.executeJavaScript.
     window.setBootStatus = function (text, isError) {
       var el = document.getElementById('status')
+      var spin = document.getElementById('spinner')
       el.textContent = text || ''
       el.classList.toggle('error', Boolean(isError))
+      spin.classList.toggle('error', Boolean(isError))
     }
   </script>
 </body>

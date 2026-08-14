@@ -6,9 +6,16 @@
  */
 
 import { join } from 'node:path'
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, nativeTheme } from 'electron'
 
 const LOADING_PAGE = join(app.getAppPath(), 'loading.html')
+
+/**
+ * The splash paints one of two flat backgrounds (see loading.html); the
+ * window background must match so first paint never flashes white/dark.
+ */
+const SPLASH_BG_DARK = '#10141c'
+const SPLASH_BG_LIGHT = '#eef0f6'
 
 /** True while the packaged-app smoke test runs (window stays hidden). */
 function isSmokeRun(): boolean {
@@ -48,6 +55,7 @@ export function createWindow(): CreatedWindow {
     autoHideMenuBar: true,
     title: 'DeepSeek Harness',
     icon: join(app.getAppPath(), 'build', 'icon.png'),
+    backgroundColor: nativeTheme.shouldUseDarkColors ? SPLASH_BG_DARK : SPLASH_BG_LIGHT,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

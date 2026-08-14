@@ -45,12 +45,16 @@ win:
     - portable
   icon: build/icon.ico
 
-# One-click NSIS on purpose: it is the electron-updater battle-tested layout —
-# silent /S --updated reinstalls work, per-user installs avoid UAC on update,
-# and the installer relaunches the app afterwards. Assisted installers make
-# the auto-update path unreliable, so directory choice is not offered.
+# Assisted installer on purpose: it gives users a directory choice and a
+# sane default folder name ("DeepSeek Harness"). The one-click layout was
+# dropped because electron-builder names its install folder after the
+# sanitized package name ("@deepseek-aidsh-desktop") — ugly and confusing.
+# Auto-update still works: the downloaded installer runs silently
+# (/S --updated) into the directory recorded by the first install; a
+# per-machine (Program Files) install just prompts UAC once during updates.
 nsis:
-  oneClick: true
+  oneClick: false
+  allowToChangeInstallationDirectory: true
   artifactName: ${productName}-${version}-setup.${ext}
 
 portable:

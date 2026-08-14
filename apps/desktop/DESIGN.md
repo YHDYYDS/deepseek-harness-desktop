@@ -158,7 +158,7 @@ workspace 接入：`pnpm-workspace.yaml` 增加 `apps/desktop`；依赖 `@deepse
 
 ## 15. 韧性设计（2026-08-14 新增）
 
-- **加载页**：窗口在宿主 boot 之前即创建并显示本地 `loading.html`（品牌图标 + 状态行），宿主就绪后 `loadURL` 接管；重启期间窗口回到加载页并显示恢复进度。加载页自包含（无外部资源、CSP 收紧），随 `files` 打入安装包。**顺序约束**：boot 必须先 `await` 加载页完成加载再启动宿主（`splashLoaded`）——快启动下宿主先就绪会中止进行中的加载页导航（ERR_ABORTED -3），连带整个 boot 失败（冒烟测试在快启动路径实证过）。
+- **加载页**：窗口在宿主 boot 之前即创建并显示本地 `loading.html`（品牌图标 + 持续转圈动画 + 状态行；纯色平铺背景，无卡片，明暗主题自适应，窗口 `backgroundColor` 与之匹配避免首帧闪白）。宿主就绪后 `loadURL` 接管；重启期间窗口回到加载页并显示恢复进度。加载页自包含（无外部资源、CSP 收紧），随 `files` 打入安装包。**顺序约束**：boot 必须先 `await` 加载页完成加载再启动宿主（`splashLoaded`）——快启动下宿主先就绪会中止进行中的加载页导航（ERR_ABORTED -3），连带整个 boot 失败（冒烟测试在快启动路径实证过）。加载页本身只占 ~0.7s：冷启动 30s+ 的耗时全部来自宿主加载（与加载页无关，只是从"隐形等待"变成可见）。
 - **崩溃自动恢复**：主进程每 20s 轮询 `http://127.0.0.1:<port>/` 健康检查（2 次连续失败触发）+ `uncaughtException` 双触发源。恢复流程 = dispose 旧 Cordis 树 → 加载页 → `startHost()` 重建 → 导航回新端口 URL。限次限窗：10 分钟内最多 3 次重启，超限响亮失败（错误框 + exit 1），绝不静默带病运行。`unhandledRejection` 仅记日志不触发（避免噪声重启）。quit 时 dispose 的是"当前"宿主句柄（lifecycle 改 getter 注入）。
 - **打包冒烟测试**：`DSH_DESKTOP_SMOKE=1` 时应用无头启动，`did-finish-load` 后经 `executeJavaScript` 探测 `__DSH_BOOT__` 客户端目录，向 boot log 打印 `SMOKE_OK plugins=N` / `SMOKE_FAIL …` 并退出；`scripts/smoke-packaged.mjs` 以临时 `DSH_HOME` 拉起打包 exe、轮询结果、`taskkill /T /F` 收树。CI（desktop-release）在打包步骤后执行，任何破坏渲染注入的回归（如 #6 的 asar 事件）都会让 release 构建失败。
 
@@ -168,6 +168,6 @@ workspace 接入：`pnpm-workspace.yaml` 增加 `apps/desktop`；依赖 `@deepse
 - **入口**：帮助 → 检查更新…（`src/menu.ts`）+ 启动 25s 后后台静默检查。后台检查只记日志，下载完成才弹「立即重启 / 稍后」；选「稍后」则 `autoInstallOnAppQuit` 在下一次退出时静默安装。
 - **feed**：GitHub Releases（`YHDYYDS/deepseek-harness-desktop`），代码内 `setFeedURL`（不依赖 app-update.yml）；CI 把 `dist/latest.yml` 作为 channel 文件上传到每个 release，应用内检查从该 asset 读版本。
 - **版本纪律**：tag 必须等于 `v` + `apps/desktop/package.json` 的 `version`（latest.yml 携带的版本与 `app.getVersion()` 比对，不一致会永远误判「已是最新」）。
-- **安装器形态**：NSIS 切 `oneClick: true`——electron-updater 的静默更新路径对它最稳、per-user 安装免 UAC；`dist` 脚本加 `--publish never` 防止本地/CI 意外触发发布。
+- **安装器形态**：NSIS 用**引导式安装器**（`oneClick: false` + 可选目录）——用户可选安装路径且默认目录名正常（`DeepSeek Harness`）；曾经切过 `oneClick: true`，但它把安装目录固定为净化后的包名（`@deepseek-aidsh-desktop`），难看且不可选，故放弃。静默更新不受影响：更新器以 `/S --updated` 重装到首次安装记录的目录（per-machine 安装时更新弹一次 UAC）。`dist` 脚本加 `--publish never` 防止本地/CI 意外触发发布。
 - **运行时注意**：electron-updater 的 `autoUpdater` 是 getter 导出（`Object.defineProperty`），Node 的 CJS 命名导出探测看不到，必须默认导入后取属性，否则打包版运行时报错。
 - **失败降级**：任何错误（网络/限流/无 channel 文件）→ 对话框 + Releases 链接，绝不阻塞或带崩应用；dev/smoke 模式全程 inert。
