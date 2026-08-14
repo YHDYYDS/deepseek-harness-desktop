@@ -51,15 +51,16 @@ jobs:
         working-directory: apps/desktop
         run: node scripts/smoke-packaged.mjs
 
-      - name: Rewrite update-channel asset names to the real (space-named) installers
+      - name: Rewrite update-channel asset names to match uploaded assets
         working-directory: apps/desktop
         shell: pwsh
         run: |
-          # electron-builder sanitizes spaces to hyphens in latest.yml while the
-          # installers keep their real names, so the in-app updater would 404.
-          # Rewrite the channel file to match the actual asset names.
+          # GitHub normalizes spaces to dots in release asset names on upload,
+          # while electron-builder sanitizes spaces to hyphens in latest.yml —
+          # neither matches the files on disk, so the updater would 404.
+          # Rewrite the channel file to the dot form GitHub actually stores.
           $p = 'dist/latest.yml'
-          $t = [IO.File]::ReadAllText($p).Replace('DeepSeek-Harness-', 'DeepSeek Harness-')
+          $t = [IO.File]::ReadAllText($p).Replace('DeepSeek-Harness-', 'DeepSeek.Harness-')
           [IO.File]::WriteAllText($p, $t, [Text.UTF8Encoding]::new($false))
 
       - name: Upload artifacts (manual runs)
