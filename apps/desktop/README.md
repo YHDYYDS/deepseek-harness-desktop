@@ -32,10 +32,12 @@ $env:CSC_IDENTITY_AUTO_DISCOVERY='false'
 
 ## 分发与测试（把应用发给朋友）
 
-1. 把 `dist\DeepSeek Harness-0.1.0-rc.5-portable.exe`（免安装，单文件）发给对方，或经 GitHub Releases 下载（push `v*` tag 触发 `.github/workflows/desktop-release.yml` 自动构建并挂附件）。
-2. 对方双击运行即可，无需安装 Node。**对方需要自己的 DeepSeek API Key**（首次启动按界面引导配置；凭据只存于对方的 `~/.dsh`，不会随应用分发）。
-3. 应用未做代码签名：Windows SmartScreen 会提示"未知发布者"，点"更多信息 → 仍要运行"。portable 首次启动自解压约 660MB，可能耗时数分钟（Defender 扫描）。
-4. 发送前请确认对方是 Windows x64。
+1. **推荐发安装版** `dist\DeepSeek Harness-0.1.0-rc.5-setup.exe`：装一次（约 700MB 磁盘），此后启动只需几秒。
+2. 免安装的 `DeepSeek Harness-0.1.0-rc.5-portable.exe` 适合一次性试用：它**每次启动都会把约 660MB 解压到临时目录**（退出时删除），Defender 实时扫描下每次启动可能耗时数分钟。
+3. 两种方式都**自包含**（内置 Electron/Node 22 与全部 Harness 代码），对方无需安装任何运行时；经 GitHub Releases 分发时 push `v*` tag 即可触发 `.github/workflows/desktop-release.yml` 自动构建并挂附件。
+4. 对方双击运行即可。**对方需要自己的 DeepSeek API Key**（首次启动按界面引导配置；凭据只存于对方的 `~/.dsh`，不会随应用分发）。
+5. 应用未做代码签名：Windows SmartScreen 会提示"未知发布者"，点"更多信息 → 仍要运行"；部分杀软可能对自解压 exe 报警，属正常现象。
+6. 发送前请确认对方是 Windows 10/11 x64。
 
 ## 合规与声明
 
@@ -57,4 +59,4 @@ $env:CSC_IDENTITY_AUTO_DISCOVERY='false'
 - [ ] 与 `dsh web` 交替使用同一 `$DSH_HOME` 无数据损坏（共享同一存储，理论同语义；未做长时压测）
 - [x] 无 `--host 0.0.0.0`、无 `--trusted-host` 暴露面；renderer 保持沙箱
 
-已知事项：portable 版首次启动需自解压约 660MB（2.7 万个文件，Windows Defender 实时扫描会使首次启动耗时数分钟），之后启动恢复秒级；asar 关闭（见上）因此安装目录体积较大（约 139MB 安装包，安装后约 700MB）。
+已知事项：portable 版**每次启动**需重新自解压约 660MB（2.7 万个文件，Windows Defender 实时扫描会使启动耗时数分钟），经常使用请用安装版；asar 关闭（见上）因此安装目录体积较大（约 139MB 安装包，安装后约 700MB）。
