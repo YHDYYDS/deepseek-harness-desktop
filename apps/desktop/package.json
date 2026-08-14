@@ -14,6 +14,7 @@
     "start": "npm run build && electron .",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder --publish never",
+    "clean:dist": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "smoke:packaged": "node scripts/smoke-packaged.mjs"
   },
   "dependencies": {
