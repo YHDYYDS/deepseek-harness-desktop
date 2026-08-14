@@ -172,16 +172,24 @@ async function runSmokeProbeIfRequested(): Promise<void> {
     app.exit(1)
   }, SMOKE_TIMEOUT_MS)
   try {
-    const raw = await win.webContents.executeJavaScript(
-      'JSON.stringify({ boot: !!window.__DSH_BOOT__, plugins: window.__DSH_BOOT__ ? Object.keys(window.__DSH_BOOT__).length : 0 })',
-    )
-    const parsed: { boot: boolean; plugins: number } = JSON.parse(String(raw))
-    if (parsed.boot && parsed.plugins > 0) {
-      trace(`SMOKE_OK plugins=${String(parsed.plugins)}`)
-      app.exit(0)
-    } else {
-      trace(`SMOKE_FAIL boot=${String(parsed.boot)} plugins=${String(parsed.plugins)}`)
-      app.exit(1)
+    // The boot manifest is injected by a script in the served page; probe a few
+    // times so a slow first paint on CI runners cannot fake a failure.
+    for (let attempt = 1; ; attempt += 1) {
+      const raw = await win.webContents.executeJavaScript(
+        'JSON.stringify({ boot: !!window.__DSH_BOOT__, plugins: window.__DSH_BOOT__ ? Object.keys(window.__DSH_BOOT__).length : 0 })',
+      )
+      const parsed: { boot: boolean; plugins: number } = JSON.parse(String(raw))
+      if (parsed.boot && parsed.plugins > 0) {
+        trace(`SMOKE_OK plugins=${String(parsed.plugins)}`)
+        app.exit(0)
+        return
+      }
+      if (attempt >= 10) {
+        trace(`SMOKE_FAIL boot=${String(parsed.boot)} plugins=${String(parsed.plugins)} after ${String(attempt)} attempts`)
+        app.exit(1)
+        return
+      }
+      await delay(1_000)
     }
   } catch (error) {
     trace(`SMOKE_FAIL ${error instanceof Error ? error.message : String(error)}`)
