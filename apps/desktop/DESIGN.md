@@ -152,3 +152,9 @@ workspace 接入：`pnpm-workspace.yaml` 增加 `apps/desktop`；依赖 `@deepse
 | 8 | electron-builder 二进制下载慢/失败 | GitHub 网络受限 | `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/` + `ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/` |
 
 **验证结论**：`dist/win-unpacked` 打包版实测——宿主在 Electron 主进程启动（随机回环端口），UI 完整（38 插件图、bundle 200、manifest 可用），窗口关闭 → 进程归零（优雅关停）。首次冷启动 ~40s（无 asar 的实文件冷读），后续启动显著更快。
+
+## 15. 韧性设计（2026-08-14 新增）
+
+- **加载页**：窗口在宿主 boot 之前即创建并显示本地 `loading.html`（品牌图标 + 状态行），宿主就绪后 `loadURL` 接管；重启期间窗口回到加载页并显示恢复进度。加载页自包含（无外部资源、CSP 收紧），随 `files` 打入安装包。
+- **崩溃自动恢复**：主进程每 20s 轮询 `http://127.0.0.1:<port>/` 健康检查（2 次连续失败触发）+ `uncaughtException` 双触发源。恢复流程 = dispose 旧 Cordis 树 → 加载页 → `startHost()` 重建 → 导航回新端口 URL。限次限窗：10 分钟内最多 3 次重启，超限响亮失败（错误框 + exit 1），绝不静默带病运行。`unhandledRejection` 仅记日志不触发（避免噪声重启）。quit 时 dispose 的是"当前"宿主句柄（lifecycle 改 getter 注入）。
+- **打包冒烟测试**：`DSH_DESKTOP_SMOKE=1` 时应用无头启动，`did-finish-load` 后经 `executeJavaScript` 探测 `__DSH_BOOT__` 客户端目录，向 boot log 打印 `SMOKE_OK plugins=N` / `SMOKE_FAIL …` 并退出；`scripts/smoke-packaged.mjs` 以临时 `DSH_HOME` 拉起打包 exe、轮询结果、`taskkill /T /F` 收树。CI（desktop-release）在打包步骤后执行，任何破坏渲染注入的回归（如 #6 的 asar 事件）都会让 release 构建失败。

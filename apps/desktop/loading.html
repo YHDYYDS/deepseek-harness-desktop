@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src file: data:; script-src 'unsafe-inline'" />
+  <title>DeepSeek Harness</title>
+  <style>
+    :root {
+      --brand: #4d6bfe;
+      --text: #1f2328;
+      --muted: #6b7280;
+      --bg: #f6f7fb;
+      --card: rgba(255, 255, 255, 0.85);
+      --err: #d93026;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --text: #e6e8ee;
+        --muted: #9aa3b2;
+        --bg: #10141c;
+        --card: rgba(28, 33, 45, 0.85);
+        --err: #ff6b5e;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      user-select: none;
+    }
+    .card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      padding: 44px 56px;
+      border-radius: 16px;
+      background: var(--card);
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
+      min-width: 340px;
+    }
+    .logo {
+      width: 72px;
+      height: 72px;
+      animation: breathe 2.2s ease-in-out infinite;
+    }
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.06); opacity: 0.86; }
+    }
+    h1 { font-size: 19px; font-weight: 600; letter-spacing: 0.2px; }
+    .status-row { display: flex; align-items: center; gap: 10px; }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--brand);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.25; transform: scale(0.85); }
+      50% { opacity: 1; transform: scale(1.1); }
+    }
+    #status { font-size: 13.5px; color: var(--muted); max-width: 420px; text-align: center; line-height: 1.6; }
+    #status.error { color: var(--err); }
+    #status.error ~ .status-row .dot { background: var(--err); animation: none; opacity: 1; }
+    .hint { font-size: 11.5px; color: var(--muted); opacity: 0.7; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <img class="logo" src="build/icon.png" alt="DeepSeek Harness" />
+    <h1>DeepSeek Harness</h1>
+    <div class="status-row"><span class="dot"></span><span id="status">正在启动 DeepSeek Harness…</span></div>
+    <div class="hint">会话与凭据仅保存在本机 ~/.dsh</div>
+  </main>
+  <script>
+    // Called from the Electron main process via webContents.executeJavaScript.
+    window.setBootStatus = function (text, isError) {
+      var el = document.getElementById('status')
+      el.textContent = text || ''
+      el.classList.toggle('error', Boolean(isError))
+    }
+  </script>
+</body>
+</html>

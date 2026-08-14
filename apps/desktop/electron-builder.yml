@@ -15,6 +15,7 @@ files:
   - lib/**/*.js
   - lib/**/*.js.map
   - main.cjs
+  - loading.html
   - build/icon.png
   - package.json
   - '!src/**'

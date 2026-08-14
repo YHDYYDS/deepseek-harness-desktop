@@ -1,81 +1,104 @@
-# DeepSeek Harness 桌面版
+<p align="center">
+  <img src="build/icon.png" width="96" alt="DeepSeek Harness Desktop" />
+</p>
 
-基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（MIT）的 **Electron 桌面壳**：把整个宿主进程（模型路由、工具、沙箱、会话存储）内嵌进 Electron 主进程，得到一款**开箱即用**的桌面应用——目标机器无需安装 Node.js、pnpm 或 `dsh`。设计蓝图见 [DESIGN.md](./DESIGN.md)。
+<h1 align="center">DeepSeek Harness Desktop</h1>
+
+<p align="center">
+  <strong>DeepSeek Harness 的 Windows 桌面版 —— 双击即用，无需 Node、无需命令行。</strong><br />
+  与官方 Web/CLI 共享同一份会话与凭据，还顺手根治了上游的会话日志损坏 bug。
+</p>
+
+<p align="center">
+  <a href="https://github.com/YHDYYDS/deepseek-harness-desktop/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/YHDYYDS/deepseek-harness-desktop?include_prereleases&style=flat-square&color=4d6bfe" /></a>
+  <a href="https://github.com/YHDYYDS/deepseek-harness-desktop/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/YHDYYDS/deepseek-harness-desktop?style=flat-square&color=4d6bfe" /></a>
+  <img alt="Platform" src="https://img.shields.io/badge/Windows-10%2F11%20x64-4d6bfe?style=flat-square" />
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-4d6bfe?style=flat-square" /></a>
+</p>
+
+> **一句话**：把 DeepSeek Harness 完整的 Web 体验（模型路由、工具、沙箱、会话、四个 Agent 预设）打包成一个原生 Windows 应用——不是"浏览器套壳"，而是把整个宿主引擎**原生内嵌**进 Electron 主进程。
+
+## 为什么是这个壳，而不是别的
+
+| 维度 | 本项目 | 常见社区壳 |
+|---|---|---|
+| 宿主载体 | **主进程原生内嵌**（`runProfile` 直启 Cordis 上下文） | spawn `dsh web` 子进程 + 解析 stdout 端口 |
+| 进程模型 | 单进程树，无第二个 Node/V8 | Electron(壳) + dsh(子进程) 双运行时 |
+| 环境依赖 | 零依赖：目标机器不需要 Node/pnpm/dsh | 部分需要系统 Node，或靠内置 node.exe 绕行 |
+| 崩溃恢复 | 健康检查 + 异常双触发，**限次自动重建宿主** | 多数仅杀进程了事 |
+| 质量门禁 | **打包后冒烟测试进 CI**（验证 `__DSH_BOOT__` 真实注入） | 少数有 |
+| 上游贡献 | **已修复上游会话日志并发损坏 bug**（含回归测试，PR 分支备好） | 无 |
+| 体积 | 安装包 ~139MB，安装后 ~700MB（asar 关闭，实文件布局） | 视方案而定 |
+
+**内核级差异**：多数壳把 harness 当黑盒子子进程管；本项目在开发途中直接触发了上游一个真实数据损坏 bug（双宿主并发修复崩溃会话 → 日志 seq 重复），并把**根治修复 + 回归测试**送回了上游代码库。壳好做，看得懂内核才修得了这种 bug。
 
 ## ✨ 特性
 
-- **双击即用**：内置 Electron 运行时（Node 22）与全部 Harness 插件，无环境依赖
-- **与 Web 版完全互通**：共享 `~/.dsh` 的会话、设置、凭据与四个 Agent 预设（标准 / PTC / 极简 / 创造）
-- **模型继承**：沿用你的 `agent-default-model` 配置（如 `deepseek-v4-pro` + 推理等级），零迁移
-- **本机安全**：宿主仅绑定 `127.0.0.1` 随机端口；渲染进程完全沙箱化，禁止离源导航
-- **单实例 + 优雅退出**：重复启动聚焦已有窗口；关闭窗口后宿主完整关停、端口释放
-- **DeepSeek 鲸鱼图标**：窗口、任务栏与安装包图标均由官方 favicon 生成（`scripts/make-icons.cjs` 可复现）
+- 🚀 **双击即用**：内置 Electron 运行时（Node 22）与全部 Harness 插件，免安装环境依赖
+- 🪟 **启动加载页**：冷启动有品牌加载页 + 实时状态，不再是"点了没反应"
+- 🛡️ **崩溃自愈**：宿主失联自动重建（10 分钟内限 3 次），弹错误框也不会静默装死
+- 🔗 **与官方完全互通**：共享 `~/.dsh` 的会话、设置、API Key 与四个 Agent 预设（标准 / PTC / 极简 / 创造），和 `dsh web` 交替使用零迁移
+- 🔒 **本机安全**：宿主仅绑定 `127.0.0.1` 随机端口；渲染进程完全沙箱化，禁止离源导航与弹窗
+- 🐋 **单实例 + 优雅退出**：重复启动聚焦已有窗口；关闭后宿主完整关停、端口释放
+- ✅ **CI 冒烟门禁**：每次 release 构建自动跑打包产物冒烟测试（临时数据目录、验完即杀）
 
-## 🚀 使用哪个程序（一键启动）
+## 📦 下载（Windows 10/11 x64）
 
-| 场景 | 程序 | 说明 |
+| 版本 | 说明 | 下载 |
 |---|---|---|
-| 装好以后日常用 | 开始菜单「DeepSeek Harness」 | 由 `setup.exe` 安装后出现，双击秒开 |
-| 免安装试用 | `DeepSeek Harness-0.1.0-rc.5-portable.exe` | 双击即用，但每次启动自解压较慢 |
-| 开发者自用（推荐） | `dist\win-unpacked\DeepSeek Harness.exe` | 打包目录内的一键启动，无需安装；**必须连同整个 `win-unpacked` 文件夹一起保留**（依赖同目录 `resources\`） |
+| **安装版（推荐）** | NSIS 安装向导，装一次后秒开 | [DeepSeek Harness-setup.exe](https://github.com/YHDYYDS/deepseek-harness-desktop/releases/latest) |
+| **便携版** | 免安装；但每次启动需自解压 ~660MB，首启较慢 | 同上 Release 页 `-portable.exe` |
 
-首次启动：按界面引导配置 DeepSeek API Key（仅存于本机 `~/.dsh`）。
+> 最新版本与历史版本都在 [Releases](https://github.com/YHDYYDS/deepseek-harness-desktop/releases)。首次启动按界面引导配置 **你自己的 DeepSeek API Key**（凭据仅存本机 `~/.dsh`，绝不随应用分发）。
 
-## 前置条件
+## 🖥️ 使用
 
-- 仓库根已执行 `pnpm install` 且 `pnpm run build` 完成（需要 `apps/web/dist` 与各包 `lib` 产物）。
-- Electron ≥ 39（内置 Node ≥ 22.19，启动时另有运行时断言）。
+1. 下载安装版并安装（开始菜单出现「DeepSeek Harness」）。
+2. 双击启动 → 加载页 → 进入完整 Harness 界面。
+3. 会话、设置、预设与 `dsh web` 完全一致；已装过 CLI 的用户直接继承一切。
+4. 关闭窗口即退出（宿主随之优雅关停、端口释放）。
 
-## 运行（开发）
+## 🔧 开发者
 
 ```bash
+pnpm install && pnpm run build          # 前置：各包 lib + apps/web/dist
+
+# 开发运行
 pnpm --filter @deepseek-ai/dsh-desktop run start
+
+# 打包（nsis + portable）
+pnpm --filter @deepseek-ai/dsh-desktop run dist
+
+# 打包后冒烟测试（自动拉起 win-unpacked，验证渲染注入后自动杀进程）
+pnpm --filter @deepseek-ai/dsh-desktop run smoke:packaged
 ```
 
-## 打包
+国内网络建议设置镜像：`ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/`、`ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/`。
 
-```bash
-pnpm --filter @deepseek-ai/dsh-desktop run pack   # 目录版（调试用）
-pnpm --filter @deepseek-ai/dsh-desktop run dist   # nsis + portable 安装包
-```
+推送 `v*` tag 触发 `.github/workflows/desktop-release.yml`：构建 → **冒烟测试** → 挂附件到 Release。
 
-国内网络建议设置镜像：
+打包采用 `asar: false`（VS Code 同型布局）：harness 深度依赖真实文件路径（profile 符号链接、worker 脚本、koffi FFI、ESM 入口），asar 会系统性破坏这些路径。入口是 CJS 引导 `main.cjs`（Electron 无 Node 内部 ESM loader，需先注册 `@deepseek-ai/*` 解析兜底）。
 
-```powershell
-$env:ELECTRON_MIRROR='https://npmmirror.com/mirrors/electron/'
-$env:ELECTRON_BUILDER_BINARIES_MIRROR='https://npmmirror.com/mirrors/electron-builder-binaries/'
-$env:CSC_IDENTITY_AUTO_DISCOVERY='false'
-```
+## 🔒 安全模型
 
-打包采用 `asar: false`（整体解包）：harness 宿主依赖真实文件系统路径（profile 扁平回退的符号链接、workflow/worker 脚本、koffi FFI、ESM 入口），asar 会系统性破坏这些路径，且收益（压缩）对 200MB 级 node_modules 不划算。入口是 CJS 引导 `main.cjs`：它先注册 `@deepseek-ai/*` 的 ESM 解析兜底（Electron 无 Node 内部 loader），再加载真路径的 ESM 主体。
-
-## 分发与测试（把应用发给朋友）
-
-1. **推荐发安装版** `dist\DeepSeek Harness-0.1.0-rc.5-setup.exe`：装一次（约 700MB 磁盘），此后启动只需几秒。
-2. 免安装的 `DeepSeek Harness-0.1.0-rc.5-portable.exe` 适合一次性试用：它**每次启动都会把约 660MB 解压到临时目录**（退出时删除），Defender 实时扫描下每次启动可能耗时数分钟。
-3. 两种方式都**自包含**（内置 Electron/Node 22 与全部 Harness 代码），对方无需安装任何运行时；经 GitHub Releases 分发时 push `v*` tag 即可触发 `.github/workflows/desktop-release.yml` 自动构建并挂附件。
-4. 对方双击运行即可。**对方需要自己的 DeepSeek API Key**（首次启动按界面引导配置；凭据只存于对方的 `~/.dsh`，不会随应用分发）。
-5. 应用未做代码签名：Windows SmartScreen 会提示"未知发布者"，点"更多信息 → 仍要运行"；部分杀软可能对自解压 exe 报警，属正常现象。
-6. 发送前请确认对方是 Windows 10/11 x64。
-
-## 合规与声明
-
-- 本应用是 **DeepSeek Harness 的非官方社区构建**，与 DeepSeek 官方无隶属关系；DeepSeek 名称与鲸鱼 logo 为 DeepSeek 的商标，仅作标识用途。
-- 代码基于 MIT 协议的 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 修改（保留 [LICENSE](../../LICENSE) 与 [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md)）；本应用新增代码同为 MIT。
-- 注意：安装包会连带捆绑部分第三方 CLI 二进制（OpenAI Codex、Claude Code 等，来自宿主平面的 subagent 提供方）。**公开分发前请核查其各自使用条款**——朋友间小范围测试无碍，公开发布建议评估是否剔除（在 electron-builder.yml 的 `files` 中排除对应 node_modules 路径）并自行确认可行性。
-
-## 安全模型
-
-- 宿主仅绑定 `127.0.0.1` + OS 分配的随机端口；不暴露 `--host` / `--trusted-host`。
+- 宿主仅绑定 `127.0.0.1` + OS 分配随机端口；无 `--host 0.0.0.0`、无 `--trusted-host`。
 - renderer 完全沙箱化（`contextIsolation` + `sandbox`，无 Node、无 preload），禁止弹出窗口与离源导航。
-- 与 `dsh web` 共享同一 `$DSH_HOME`（会话、设置、凭据、预设互通）。loopback API 无认证的事实与 `dsh web` 相同。
+- 加载页 CSP 收紧至无外部资源。
+- 与 `dsh web` 相同：loopback API 无认证（本机任意进程可调），桌面形态不新增攻击面、也不改变它。
+- 冒烟测试使用一次性临时 `DSH_HOME`，绝不触碰真实会话数据。
 
-## 验收清单
+## ⚠️ 已知限制
 
-- [x] 启动后窗口显示 Harness UI；模型/会话与 `dsh web` 一致（`__DSH_BOOT__` 38 个 client 插件、bundle 200）
-- [x] 关闭窗口后进程退出，无残留端口监听（`win-unpacked` 与 portable 均实测）
-- [x] 打包产物在无 Node 环境可运行（Electron 内置 Node 22.22.1 满足 engines）
-- [ ] 与 `dsh web` 交替使用同一 `$DSH_HOME` 无数据损坏（共享同一存储，理论同语义；未做长时压测）
-- [x] 无 `--host 0.0.0.0`、无 `--trusted-host` 暴露面；renderer 保持沙箱
+- **未做代码签名**：SmartScreen 会提示"未知发布者"→ 更多信息 → 仍要运行。
+- **仅 Windows x64**；macOS/Linux 未构建。
+- **无自动更新**：新版请从 Releases 下载覆盖安装。
+- 便携版每次启动需自解压 ~660MB，Defender 实时扫描下首启可能较慢——日常使用请用安装版。
+- 安装后占用约 700MB（`asar: false` 实文件布局换来的稳定性）。
 
-已知事项：portable 版**每次启动**需重新自解压约 660MB（2.7 万个文件，Windows Defender 实时扫描会使启动耗时数分钟），经常使用请用安装版；asar 关闭（见上）因此安装目录体积较大（约 139MB 安装包，安装后约 700MB）。
+## 📜 合规声明
+
+本应用是 **DeepSeek Harness 的非官方社区构建**，与 DeepSeek 官方无隶属关系；名称与鲸鱼 logo 为 DeepSeek 商标，仅作标识用途。代码基于 MIT 协议的 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（含上游会话持久化修复），新增代码同为 MIT。安装包连带捆绑部分第三方 CLI 二进制（Codex、Claude Code 等 subagent 提供方），公开发布前请自行核查其使用条款。
+
+---
+
+*An unofficial Windows desktop build of [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): the full web composition runs natively inside the Electron main process (not a child-process wrapper) — zero prerequisites, shared `~/.dsh` data, crash auto-recovery, and a packaged-app smoke gate in CI. Ships an upstream root-cause fix for the session-log double-repair corruption bug.*
