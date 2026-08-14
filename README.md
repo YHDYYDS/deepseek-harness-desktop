@@ -34,6 +34,10 @@ pnpm run build
 pnpm dsh web
 ```
 
+### Desktop shell (experimental)
+
+An Electron desktop shell that embeds the host in its main process (no local Node/`dsh` needed on the target machine). See [apps/desktop](apps/desktop/README.md).
+
 ## Community and support
 
 - Feel free to submit feedback or bug reports through [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions).

@@ -14,8 +14,21 @@
   "bin": {
     "dsh": "lib/bin.js"
   },
+  "exports": {
+    "./profile-boot": {
+      "types": "./lib/types/profile-boot.d.ts",
+      "default": "./lib/types/profile-boot.js"
+    },
+    "./process-shutdown": {
+      "types": "./lib/types/process-shutdown.d.ts",
+      "default": "./lib/types/process-shutdown.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "lib/*.js",
+    "lib/types/*.js",
+    "lib/types/*.d.ts",
     "config"
   ],
   "license": "MIT",

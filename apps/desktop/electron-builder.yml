@@ -1,0 +1,44 @@
+# electron-builder configuration for the dsh desktop shell.
+# The host (full web composition) runs inside the Electron main process, so the
+# packaged app must carry the production node_modules of `@deepseek-ai/dsh`
+# (its transitive `dsh-*` bundles and the built `dsh-web-frontend` dist).
+
+appId: com.deepseek.harness.desktop
+productName: DeepSeek Harness
+copyright: Copyright © 2026 DeepSeek
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - lib/**/*.js
+  - lib/**/*.js.map
+  - main.cjs
+  - build/icon.png
+  - package.json
+  - '!src/**'
+  - '!scripts/**'
+
+# The harness host relies on real filesystem paths everywhere — the healed
+# profile fallback symlinks plugin packages, workflow/code-runtime workers,
+# koffi FFI bindings, and the ESM entry all need plain files. Shipping
+# unpacked (asar: false) is the standard layout for apps that embed a Node
+# server of this shape (cf. VS Code); it removes the whole asar failure class.
+asar: false
+
+npmRebuild: false
+
+win:
+  target:
+    - nsis
+    - portable
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-${version}-setup.${ext}
+
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}

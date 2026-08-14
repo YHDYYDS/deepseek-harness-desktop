@@ -1,0 +1,28 @@
+{
+  "name": "@deepseek-ai/dsh-desktop",
+  "version": "0.1.0-rc.5",
+  "private": true,
+  "description": "DeepSeek Harness desktop shell — the Web GUI with the host embedded in Electron main (route C, C2 carrier)",
+  "author": "DeepSeek",
+  "type": "module",
+  "main": "main.cjs",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "npm run build && electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh": "workspace:^",
+    "@deepseek-ai/dsh-app-boot": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.0",
+    "typescript": "^6.0.3"
+  }
+}

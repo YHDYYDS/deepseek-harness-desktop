@@ -11,8 +11,8 @@
  * @module @deepseek-ai/dsh/profile-boot
  */
 
-import { writeFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FiberState, type Context } from '@deepseek-ai/cordis'
 import type { PatchOptions } from '@deepseek-ai/cordis-plugin-include'
@@ -31,8 +31,41 @@ import {
 } from '@deepseek-ai/dsh-app-boot'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 
+/**
+ * Absolute path of this dsh installation's package.json, found by walking up
+ * from this module until the directory whose package.json names the dsh app.
+ * Emit layouts differ (src/ and the bundled lib/ chunk sit one level under
+ * apps/cli, while the tsc-emitted lib/types copy — the exports-map surface
+ * embedded hosts like dsh-desktop import — sits two levels down), so a fixed
+ * relative URL would land wrong for one of them; the name check stops at the
+ * app package in every layout.
+ * @param fromUrl - this module's import.meta.url.
+ * @returns the absolute apps/cli package.json path.
+ */
+export function findInstallAnchor(fromUrl: string): string {
+  let dir = dirname(fileURLToPath(fromUrl))
+  for (;;) {
+    const candidate = join(dir, 'package.json')
+    if (existsSync(candidate)) {
+      try {
+        const manifest = JSON.parse(readFileSync(candidate, 'utf8')) as { name?: unknown }
+        if (manifest.name === '@deepseek-ai/dsh') return candidate
+      } catch {
+        /* unreadable manifest — keep walking */
+      }
+    }
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  throw new Error('dsh: cannot locate the @deepseek-ai/dsh installation anchor')
+}
+
+/** Absolute path of this dsh installation's package.json (see {@link findInstallAnchor}). */
+export const INSTALL_ANCHOR = findInstallAnchor(import.meta.url)
+
 /** Shipped agent-preset root: beside this app's own config, in both source and built layouts. */
-const SHIPPED_PRESET_ROOT = fileURLToPath(new URL('../config/agent-presets/', import.meta.url))
+const SHIPPED_PRESET_ROOT = join(dirname(INSTALL_ANCHOR), 'config', 'agent-presets')
 
 import { DSH_LAUNCH_ENVIRONMENT_KEY, type LaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
 import { provideCmdline } from '@deepseek-ai/dsh-cmdline'
@@ -49,9 +82,6 @@ const NAME = 'dsh'
 export function homePatchPath(): string {
   return join(resolveDshHome(), PROFILE_PATCH_FILENAME)
 }
-
-/** Absolute path of this dsh installation's package.json (both anchors: src/ and lib/ sit one level under apps/cli). */
-export const INSTALL_ANCHOR = fileURLToPath(new URL('../package.json', import.meta.url))
 
 /** The session-telemetry row id the DSH_TELEMETRY_DISABLED switch targets. */
 const TELEMETRY_ROW_ID = 'session-telemetry-otel'
@@ -276,22 +306,38 @@ export async function runProfile(options: RunProfileOptions): Promise<{ ctx: Con
       // live on every long-lived surface. A silent skip would break the
       // documented hot-reload contract. HMR injects the timer service, which a
       // bare custom profile may not mount either.
-      if (ctx.get('hmr') === undefined) {
+      let hmrReady = ctx.get('hmr') !== undefined
+      if (!hmrReady) {
         if (ctx.get('timer') === undefined) {
           await ctx.loader.create({ name: '@deepseek-ai/cordis-plugin-timer' })
         }
-        await ctx.loader.create({ name: '@deepseek-ai/cordis-plugin-hmr', config: { root: [] } })
+        try {
+          await ctx.loader.create({ name: '@deepseek-ai/cordis-plugin-hmr', config: { root: [] } })
+          hmrReady = true
+        } catch (error) {
+          // The HMR service needs access to Node's internal ESM loader, which
+          // some hosts cannot provide (the Electron main process among them —
+          // its node integration strips the internal module surface). Config
+          // hot-reload is a convenience, not a boot contract: degrade to a
+          // static composition instead of failing the boot.
+          ctx.logger.warn(
+            'config hot-reload unavailable: %s',
+            error instanceof Error ? error.message : String(error),
+          )
+        }
       }
-      await watchUserPatches(ctx, {
-        binName: NAME,
-        filename: composed.profile.patchPath,
-        compose: composeLive,
-      })
-      await watchUserPatches(ctx, {
-        binName: NAME,
-        filename: homePatchPath(),
-        compose: composeLive,
-      })
+      if (hmrReady) {
+        await watchUserPatches(ctx, {
+          binName: NAME,
+          filename: composed.profile.patchPath,
+          compose: composeLive,
+        })
+        await watchUserPatches(ctx, {
+          binName: NAME,
+          filename: homePatchPath(),
+          compose: composeLive,
+        })
+      }
     } catch (error) {
       suppressShutdownError(ctx, signalShutdown.signal, error)
     }

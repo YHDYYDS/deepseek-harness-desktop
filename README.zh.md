@@ -34,6 +34,10 @@ pnpm run build
 pnpm dsh web
 ```
 
+### 桌面版（实验性）
+
+Electron 桌面壳，把宿主进程内嵌进主进程（目标机器无需安装 Node/`dsh`）。见 [apps/desktop](apps/desktop/README.md)。
+
 ## 社区与支持
 
 - 欢迎通过 [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions) 提交反馈或 bug 报告。
