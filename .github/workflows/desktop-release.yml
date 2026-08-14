@@ -8,6 +8,8 @@ name: desktop-release
 # are needed here (the mirrors in apps/desktop/README.md target restricted
 # networks). Signing stays disabled: community builds ship unsigned and
 # Windows SmartScreen will show an "unknown publisher" prompt.
+# NOTE: if this workflow stops showing up under Actions, re-push the file once —
+# GitHub occasionally skips first-seen registration.
 
 on:
   push:
